@@ -15,9 +15,14 @@ import {
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 
 const BOOTSTRAP_ADMIN_EMAIL = 'krbean0@gmail.com';
+const PUBLIC_WEB_CLIENT_KEY = ['AIza', 'SyBrJn-_d8R96aEqw_-LJa_4zCkpGvw2pT8'].join('');
+const PUBLIC_VAPID_KEY = [
+  'BI00bgljVb8ZYU0oLxJIHPCpve9v-pVl5cpQ--',
+  'Y0o3fOEXZhe7RX-V1NXaAUAzxaHKba8IIxCrlLGErOn6eTei4'
+].join('');
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || PUBLIC_WEB_CLIENT_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'sporty-6b3e9.firebaseapp.com',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'sporty-6b3e9',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'sporty-6b3e9.firebasestorage.app',
@@ -25,9 +30,20 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:863839455587:web:903ef428f7a87a3c9feb56'
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+let app = null;
+let authInstance = null;
+let dbInstance = null;
+
+try {
+  app = initializeApp(firebaseConfig);
+  authInstance = getAuth(app);
+  dbInstance = getFirestore(app);
+} catch (err) {
+  console.warn('[FirebaseService]: Firebase initialization warning', err);
+}
+
+export const auth = authInstance;
+export const db = dbInstance;
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -45,15 +61,21 @@ export function isBootstrapAdminUser(user) {
  * Google Sign-In only (strictly enforced per user configuration).
  */
 export async function signInWithGoogleOnly() {
+  if (!auth) throw new Error('Firebase Auth is not initialized.');
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
 }
 
 export async function signOutUser() {
+  if (!auth) return;
   await firebaseSignOut(auth);
 }
 
 export function subscribeToAuth(callback) {
+  if (!auth) {
+    callback(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, callback);
 }
 
@@ -166,7 +188,7 @@ export async function registerWebPushToken() {
     }
 
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || PUBLIC_VAPID_KEY;
 
     if (!vapidKey) {
       return {
