@@ -1,0 +1,217 @@
+:root {
+  color-scheme: light dark;
+
+  /* Raw light and dark surface primitives */
+  --bg-page-light: #f8fafc;
+  --bg-page-dark: #0b0f17;
+
+  --bg-card-light: #ffffff;
+  --bg-card-dark: #111827;
+
+  --bg-elevated-light: #f1f5f9;
+  --bg-elevated-dark: #1e293b;
+
+  /* Floating menus and toasts sit one step above cards */
+  --bg-popover-light: #ffffff;
+  --bg-popover-dark: #192235;
+
+  --text-primary-light: #0f172a;
+  --text-primary-dark: #f8fafc;
+
+  --text-secondary-light: #475569;
+  --text-secondary-dark: #94a3b8;
+
+  --text-muted-light: #64748b;
+  --text-muted-dark: #64748b;
+
+  --border-light-val: #e2e8f0;
+  --border-dark-val: #1e293b;
+
+  --accent-primary-light: #dc2626;
+  --accent-primary-dark: #f87171;
+
+  --accent-hover-light: rgba(220, 38, 38, 0.08);
+  --accent-hover-dark: rgba(248, 113, 113, 0.14);
+
+  /* Text and icons placed on a solid accent fill */
+  --on-accent-light: #ffffff;
+  --on-accent-dark: #250606;
+
+  --status-live-light: #dc2626;
+  --status-live-dark: #f87171;
+
+  --status-warn-light: #d97706;
+  --status-warn-dark: #fbbf24;
+
+  /* Fallback assignments for browsers without light-dark() */
+  --bg-page: var(--bg-page-light);
+  --bg-card: var(--bg-card-light);
+  --bg-elevated: var(--bg-elevated-light);
+  --bg-popover: var(--bg-popover-light);
+  --text-primary: var(--text-primary-light);
+  --text-secondary: var(--text-secondary-light);
+  --text-muted: var(--text-muted-light);
+  --border-light: var(--border-light-val);
+  --accent-primary: var(--accent-primary-light);
+  --accent-primary-hover: var(--accent-hover-light);
+  --on-accent: var(--on-accent-light);
+  --status-live: var(--status-live-light);
+  --status-warn: var(--status-warn-light);
+
+  --scrollbar-track: #e2e8f0;
+  --scrollbar-thumb: #94a3b8;
+
+  --font-sans: 'Barlow', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-numeric: 'Barlow Condensed', 'Barlow', sans-serif;
+  --radius-card: 14px;
+  --radius-pill: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: var(--bg-page-dark);
+    --bg-card: var(--bg-card-dark);
+    --bg-elevated: var(--bg-elevated-dark);
+    --bg-popover: var(--bg-popover-dark);
+    --text-primary: var(--text-primary-dark);
+    --text-secondary: var(--text-secondary-dark);
+    --text-muted: var(--text-muted-dark);
+    --border-light: var(--border-dark-val);
+    --accent-primary: var(--accent-primary-dark);
+    --accent-primary-hover: var(--accent-hover-dark);
+    --on-accent: var(--on-accent-dark);
+    --status-live: var(--status-live-dark);
+    --status-warn: var(--status-warn-dark);
+    --scrollbar-track: #111827;
+    --scrollbar-thumb: #475569;
+  }
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --bg-page: light-dark(var(--bg-page-light), var(--bg-page-dark));
+    --bg-card: light-dark(var(--bg-card-light), var(--bg-card-dark));
+    --bg-elevated: light-dark(var(--bg-elevated-light), var(--bg-elevated-dark));
+    --bg-popover: light-dark(var(--bg-popover-light), var(--bg-popover-dark));
+    --text-primary: light-dark(var(--text-primary-light), var(--text-primary-dark));
+    --text-secondary: light-dark(var(--text-secondary-light), var(--text-secondary-dark));
+    --text-muted: light-dark(var(--text-muted-light), var(--text-muted-dark));
+    --border-light: light-dark(var(--border-light-val), var(--border-dark-val));
+    --accent-primary: light-dark(var(--accent-primary-light), var(--accent-primary-dark));
+    --accent-primary-hover: light-dark(var(--accent-hover-light), var(--accent-hover-dark));
+    --on-accent: light-dark(var(--on-accent-light), var(--on-accent-dark));
+    --status-live: light-dark(var(--status-live-light), var(--status-live-dark));
+    --status-warn: light-dark(var(--status-warn-light), var(--status-warn-dark));
+    --scrollbar-track: light-dark(#e2e8f0, #111827);
+    --scrollbar-thumb: light-dark(#94a3b8, #475569);
+  }
+}
+
+html {
+  accent-color: var(--accent-primary);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-x: clip;
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: background-color 150ms ease-out, transform 120ms ease-out, border-color 150ms ease-out;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* Tactile Horizontal Filter Track (Rule 15) */
+.chip-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0.25rem 0;
+}
+
+.chip-track::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0 1rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-chip:hover {
+  background-color: var(--accent-primary-hover);
+  color: var(--text-primary);
+}
+
+.filter-chip[data-active='true'] {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--on-accent);
+}
+
+/* Single-Sheet Dialog & Modal Surface (Rule 10 + light-dismiss-a-dialog) */
+dialog.single-sheet-modal {
+  margin: auto;
+  width: min(560px, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 2rem);
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 0;
+  overflow: hidden;
+}
+
+dialog.single-sheet-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.single-sheet-modal::backdrop {
+  background-color: rgba(11, 15, 23, 0.6);
+  backdrop-filter: blur(4px);
+}

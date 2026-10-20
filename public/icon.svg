@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Dark scoreboard tile with signature live-red outline -->
+  <rect
+    x="22"
+    y="22"
+    width="468"
+    height="468"
+    rx="116"
+    fill="#111827"
+    stroke="#ef4444"
+    stroke-width="28"
+  />
+  <!-- Subtle inner stadium track ring -->
+  <rect
+    x="56"
+    y="56"
+    width="400"
+    height="400"
+    rx="86"
+    stroke="#ef4444"
+    stroke-opacity="0.22"
+    stroke-width="6"
+  />
+  <!-- Athletic geometric S ribbon -->
+  <path
+    d="M336 156H206C175.072 156 150 181.072 150 212C150 242.928 175.072 268 206 268H306C336.928 268 362 293.072 362 324C362 354.928 336.928 380 306 380H176"
+    stroke="#f8fafc"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Live red accent indicator at top-right of the S track -->
+  <circle cx="356" cy="156" r="26" fill="#ef4444" stroke="#111827" stroke-width="10" />
+</svg>

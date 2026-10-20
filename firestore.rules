@@ -1,0 +1,242 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: system
+    // Document ID: pushRegistry
+    // Fields:
+    //   - subscribers: map (required) - keyed by user UID with push subscription settings
+    //   - updatedAt: timestamp or string or number (optional) - last registry update time
+    //
+    // Collection: system
+    // Document ID: {docId} (e.g. appConfig, liveScoreState)
+    // Fields:
+    //   - Application configuration and live score sync state managed by admins/Cloud Functions
+    //
+    // Collection: users
+    // Document ID: {userId} (matches Firebase Auth UID)
+    // Fields:
+    //   - uid: string (optional, immutable if present, must match userId)
+    //   - email: string (optional, max 254 chars)
+    //   - displayName: string (optional, max 120 chars)
+    //   - photoURL: string (optional, max 2048 chars)
+    //   - favoriteTeams: list (optional, max 200 items)
+    //   - watchlist: list (optional, max 500 items)
+    //   - isAdmin: bool (optional, admin-only privileged field)
+    //   - isSuperAdmin: bool (optional, admin-only privileged field)
+    //   - roles: list or map (optional, admin-only privileged field)
+    //   - adminLocked: bool (optional, admin-only privileged field)
+    //   - createdAt: timestamp or string or number (optional, immutable on update)
+    //   - updatedAt: timestamp or string or number (optional)
+    //
+    // Collection: sharedWatchlists
+    // Document ID: {shareId}
+    // Fields:
+    //   - ownerId: string (required, immutable, matches creator UID)
+    //   - title: string (optional, max 160 chars)
+    //   - isPublic: bool (optional)
+    //   - recipientIds: list of strings (optional, max 200 UIDs)
+    //   - gameIds: list (optional, max 500 items)
+    //   - teamIds: list (optional, max 200 items)
+    //   - createdAt: timestamp or string or number (optional, immutable on update)
+    //   - updatedAt: timestamp or string or number (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Two-Tier Admin Engine
+    function isBootstrapAdmin() {
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == 'krbean0@gmail.com';
+    }
+
+    function isDbAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuperAdmin', false) == true
+        );
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || isDbAdmin();
+    }
+
+    function uidUnchanged(userId) {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == userId;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        !('uid' in resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidOptionalString(data, field, maxLen) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isValidOptionalList(data, field, maxSize) {
+      return !(field in data) ||
+        (data[field] is list && data[field].size() <= maxSize);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidSubscriberEntry(entry) {
+      return entry == null || (entry is map && entry.keys().size() <= 25);
+    }
+
+    function isValidOwnPushRegistryCreate() {
+      return isSignedIn() &&
+        request.resource.data.keys().hasOnly(['subscribers', 'updatedAt']) &&
+        'subscribers' in request.resource.data &&
+        request.resource.data.subscribers is map &&
+        request.resource.data.subscribers.keys().hasOnly([request.auth.uid]) &&
+        isValidSubscriberEntry(request.resource.data.subscribers[request.auth.uid]);
+    }
+
+    function isValidOwnPushRegistryUpdate() {
+      return isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['subscribers', 'updatedAt']) &&
+        'subscribers' in request.resource.data &&
+        request.resource.data.subscribers is map &&
+        (
+          ('subscribers' in resource.data && resource.data.subscribers is map)
+            ? request.resource.data.subscribers.diff(resource.data.subscribers).affectedKeys().hasOnly([request.auth.uid])
+            : request.resource.data.subscribers.keys().hasOnly([request.auth.uid])
+        ) &&
+        (
+          !(request.auth.uid in request.resource.data.subscribers) ||
+          isValidSubscriberEntry(request.resource.data.subscribers[request.auth.uid])
+        );
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data is map &&
+        data.keys().size() <= 40 &&
+        uidUnchanged(userId) &&
+        isValidOptionalString(data, 'displayName', 120) &&
+        isValidOptionalString(data, 'email', 254) &&
+        isValidOptionalString(data, 'photoURL', 2048) &&
+        isValidOptionalList(data, 'favoriteTeams', 200) &&
+        isValidOptionalList(data, 'favoriteTeamIds', 200) &&
+        isValidOptionalList(data, 'watchlist', 500) &&
+        isValidOptionalList(data, 'pinnedGames', 500);
+    }
+
+    function hasNoPrivilegedUserFieldsOnCreate() {
+      return !request.resource.data.keys().hasAny(['isAdmin', 'isSuperAdmin', 'roles', 'adminLocked']);
+    }
+
+    function hasNoPrivilegedUserFieldsModified() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'isSuperAdmin', 'roles', 'adminLocked']) == false;
+    }
+
+    function isValidSharedWatchlist(data) {
+      return data is map &&
+        data.keys().size() <= 30 &&
+        'ownerId' in data &&
+        data.ownerId is string &&
+        data.ownerId.size() > 0 &&
+        data.ownerId.size() <= 128 &&
+        isValidOptionalString(data, 'title', 160) &&
+        isValidOptionalString(data, 'description', 1000) &&
+        (!('isPublic' in data) || data.isPublic is bool) &&
+        isValidOptionalList(data, 'recipientIds', 200) &&
+        isValidOptionalList(data, 'gameIds', 500) &&
+        isValidOptionalList(data, 'teamIds', 200) &&
+        isValidOptionalList(data, 'items', 500);
+    }
+
+    // ===============================================================
+    // Bucket 1: System & Reference Data
+    // ===============================================================
+
+    match /system/pushRegistry {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || isValidOwnPushRegistryCreate();
+      allow update: if isAdmin() || isValidOwnPushRegistryUpdate();
+      allow delete: if isAdmin();
+    }
+
+    match /system/{docId} {
+      allow read: if isSignedIn() && docId != 'pushRegistry';
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // Bucket 2: User Data
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) && isValidUserProfile(request.resource.data, userId) && hasNoPrivilegedUserFieldsOnCreate()) || isAdmin();
+      allow update: if (isOwner(userId) && isValidUserProfile(request.resource.data, userId) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt']) && hasNoPrivilegedUserFieldsModified()) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Bucket 3: Collaboration & Sharing
+    // ===============================================================
+
+    match /sharedWatchlists/{shareId} {
+      allow read: if isSignedIn() && (
+        resource.data.isPublic == true ||
+        resource.data.ownerId == request.auth.uid ||
+        (resource.data.recipientIds is list && request.auth.uid in resource.data.recipientIds) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() &&
+        isValidSharedWatchlist(request.resource.data) &&
+        (request.resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() &&
+        isValidSharedWatchlist(request.resource.data) &&
+        (
+          (resource.data.ownerId == request.auth.uid &&
+           request.resource.data.ownerId == resource.data.ownerId &&
+           areImmutableFieldsUnchanged(['ownerId', 'createdAt'])) ||
+          isAdmin()
+        );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // ===============================================================
+    // Default Deny
+    // ===============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
